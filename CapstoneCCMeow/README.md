@@ -3,5 +3,4 @@
 this include 
 login
 register
-getuser
-profile
+
