@@ -6,90 +6,76 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 from flask import Flask, request, jsonify
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
-from tensorflow.keras.models import load_model
 import tensorflow_hub as hub
-import time
 import pandas as pd
+from tensorflow.keras.models import load_model
 import json
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
 
-# Fungsi ini digunakan untuk mendaftarkan objek khusus
-# def load_keras_layer():
-#     return KerasLayer
 
-# path = 'Model_meowfinder.h5'
-# model = tf.keras.models.load_model(
-#        (path),
-#        custom_objects={'KerasLayer':hub.KerasLayer}
-# )
-# model = keras.models.load_model("Model_meowfinder.h5", custom_objects={'KerasLayer': load_keras_layer})
+
+
 model = keras.models.load_model("Model_meowfinder.h5", )
 
 def read_image(file_path):
     image = load_img(file_path, target_size=(200, 300, 3))
     image = img_to_array(image)
     image /= 255
-    
     x = np.expand_dims(image, axis=0)
     return x
 
 def test_single_image(image_array):
     df = pd.read_excel('kucing.xlsx')
 
-    # images = np.expand_dims(image_array, axis=0)
-    view = ['Bengal', 'Domestic_Shorthair', 'Maine_Coon', 'Ragdoll' , 'Siamese']
-    # time.sleep(.5)
+    view = ['Bengal', 'Domestic Shorthair', 'Maine Coon', 'Ragdoll', 'Siamese']
 
     classes = model.predict(image_array, batch_size=1)
 
-    # Mengambil indeks kelas dengan probabilitas tertinggi
     predicted_class_index = classes.argmax()
 
-    # Mengonversi indeks kelas menjadi label
+
     predicted_label = view[predicted_class_index]
 
-    # Mengambil indeks kelas dengan probabilitas tertinggi
-    top_classes = 31  # Mengambil 5 kelas dengan probabilitas tertinggi
+    
+    top_classes = 5  
     top_class_indices = np.argsort(classes)[0, ::-1][:top_classes]
 
-    ingredients_detected = []
+    kucing_terdeteksi = []
 
-    # Menampilkan label berdasarkan probabilitas tertinggi
+   
     print("Kucing: ")
     for index in top_class_indices:
         label = view[index]
         prob = classes[0, index]
-        if prob > 0.05:
+        if prob > 0.75:
             print(f"{label}: {prob:.4f}")
-            ingredients_detected.append(label)
+            kucing_terdeteksi.append(label)
             # print(label)
-    data_to_send = {"Ras Kucing": ingredients_detected}
+    data_to_send = {"Ras Kucing": kucing_terdeteksi}
 
-    # Menyimpan nilai dalam variabel global
-    detected_results = {}
+    
+    hasil_deteksiKucing = {}
 
-    for label in ingredients_detected:
+    for label in kucing_terdeteksi:
         query_pattern = label
-        conditions = [df['ras'].str.contains(query_pattern, case=False, regex=True, na=False) for query_pattern in
-                      ingredients_detected]
-
-
-        result_df = df[pd.DataFrame(conditions).all(axis=0)]
-
+        kondisi = [df['ras'].str.contains(query_pattern, case=False, regex=True, na=False) for query_pattern in
+                      kucing_terdeteksi]
+        result_df = df[pd.DataFrame(kondisi).all(axis=0)]
 
         for index, row in result_df.iterrows():
             nama = row['ras']
             foto = row['link']
             deskripsi = row['deskripsi']
-            # url = row['URL']
-
-
-            detected_results[index] = {'Ras':nama, ' foto':foto, 'deskripsi':deskripsi}
-
-    return detected_results
+           
+            hasil_deteksiKucing[index] = {'Ras':nama, ' foto':foto, 'deskripsi':deskripsi}
+    return hasil_deteksiKucing
 
 app = Flask(__name__)
 
+
+from collections import OrderedDict
+
+# ...
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -103,29 +89,35 @@ def index():
             tensor = read_image('static/uploads/file.jpg')
             prediction = test_single_image(tensor)
 
+            # Ubah dari objek menjadi array
+            data_array = []  # Hapus header yang sebelumnya ditambahkan
 
-            json_data = json.dumps(prediction, indent=2)
+            for key, value in prediction.items():
+                ras = value['Ras']
+                foto = value[' foto']
+                deskripsi = value['deskripsi']
+                
+                # Format data kucing menjadi objek dengan urutan properti
+                kucing_data = OrderedDict([('Ras', ras), ('Foto', foto), ('Deskripsi', deskripsi)])
+                data_array.append(kucing_data)
+
             return jsonify({
                 "status": {
                     "code": 200,
                     "message": "Success predicting"
                 },
-                "data": json.loads(json_data)  # mengonversi string JSON kembali menjadi objek Python
+                "data": data_array
             }), 200
 
         except Exception as e:
             return jsonify({"error": str(e)})
+    return "Service MeowFinder Aktiff"
 
-    # else:
-    #     return jsonify({
-    #         "status": {
-    #             "code": 405,
-    #             "message": "Method not allowed"
-    #         },
-    #         "data": None,
-    #     }), 405
+# ...
 
-    return "Service Activated"
+
+
+
 
 
 if __name__ == "__main__":
