@@ -1,0 +1,9 @@
+Flask
+gunicorn
+tensorflow
+numpy
+python-time
+Pillow
+pandas
+tensorflow_hub
+openpyxl
